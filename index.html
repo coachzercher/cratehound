@@ -82,7 +82,8 @@ header.top .hbtn { color: #EDEFEA; }
 .intro { padding-block: 28px 8px; display: grid; gap: 6px; }
 .intro h1 { font-family: var(--f-display); font-weight: 900; font-size: clamp(38px, 6vw, 64px); line-height: .92; text-transform: uppercase; margin: 0; text-wrap: balance; letter-spacing: .005em; }
 .intro p { margin: 0; color: var(--muted); max-width: 62ch; }
-.sources { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.sources { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 6px; }
+.srclabel { font-size: 12px; color: var(--muted); margin-right: 2px; }
 .src { display: inline-flex; align-items: center; gap: 6px; font-family: var(--f-mono); font-size: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; color: var(--ink); text-decoration: none; }
 .src .n { color: var(--muted); }
 .src.err { border-color: var(--drop); }
@@ -136,11 +137,12 @@ header.top .hbtn { color: #EDEFEA; }
 
 /* Drawer */
 .scrim { position: fixed; inset: 0; background: rgba(10,11,12,.5); z-index: 20; }
-.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(480px, 100%); background: var(--bg); z-index: 21; overflow-y: auto; box-shadow: -10px 0 30px rgba(0,0,0,.25); padding: calc(env(safe-area-inset-top, 0px) + 16px) max(18px, env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + 28px) 18px; display: grid; gap: 16px; align-content: start; }
-.drawer .x { justify-self: end; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 6px 12px; cursor: pointer; font-weight: 600; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(480px, 100%); background: var(--bg); z-index: 21; overflow-y: auto; box-shadow: -10px 0 30px rgba(0,0,0,.25); padding: calc(env(safe-area-inset-top, 0px) + 16px) max(18px, env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + 28px) 18px; display: flex; flex-direction: column; gap: 16px; }
+.drawer > * { flex: none; min-width: 0; }
+.drawer .x { align-self: flex-end; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 6px 12px; cursor: pointer; font-weight: 600; }
 .drawer h3 { font-family: var(--f-display); font-weight: 900; text-transform: uppercase; font-size: 34px; line-height: .95; margin: 0; text-wrap: balance; overflow-wrap: anywhere; }
 .drawer .by { font-weight: 700; font-size: 16px; }
-.drawer .cover { border-radius: var(--r); max-width: 320px; width: 100%; }
+.drawer .cover { border-radius: var(--r); width: 100%; max-width: 240px; height: auto; aspect-ratio: 1 / 1; }
 .pricebig { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; font-family: var(--f-mono); }
 .pricebig .now { font-size: 34px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .pricebig .was { color: var(--muted); text-decoration: line-through; }
@@ -207,15 +209,14 @@ footer .wrap { padding-block: 18px 30px; display: grid; gap: 6px; }
     <a class="brand" href="#" aria-label="Crate Hound home"><b><span class="w1">Crate</span><span class="w2">H<svg class="o" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="58" fill="#EDEFEA"></circle><circle cx="60" cy="60" r="48" fill="none" stroke="#C9CEC6" stroke-width="3"></circle><circle cx="60" cy="60" r="38" fill="none" stroke="#C9CEC6" stroke-width="3"></circle><circle cx="60" cy="60" r="21" fill="#FFB21A"></circle><circle cx="60" cy="60" r="5" fill="#16181A"></circle></svg>und</span></b></a>
     <span class="status" id="status"><span class="dot" id="dot"></span><span id="statusText">Starting up</span></span>
     <button class="hbtn" id="refreshBtn" type="button">Refresh</button>
-    <button class="hbtn" id="settingsBtn" type="button">Sources &amp; links</button>
+    <button class="hbtn" id="settingsBtn" type="button" hidden>Sources &amp; links</button>
   </div>
 </header>
 
 <main class="wrap">
   <section class="intro">
     <h1>Vinyl deals, sniffed out</h1>
-    <p>New record deals from the deal accounts below, with the biggest price drops pulled to the top. Tap any record to compare prices and check other stores.</p>
-    <div class="sources" id="sources" aria-label="Deal sources"></div>
+    <p>Fresh record deals from vinyl deal hunters, with the biggest price drops pulled to the top. Tap any record to see how good the deal is and check other stores.</p>
     <div class="banner" id="banner" hidden></div>
   </section>
 
@@ -247,6 +248,7 @@ footer .wrap { padding-block: 18px 30px; display: grid; gap: 6px; }
 
 <footer>
   <div class="wrap">
+    <div class="sources" id="sources" aria-label="Deal sources"></div>
     <span><strong>Affiliate disclosure:</strong> some links on this page are affiliate links. If you buy through them, this site may earn a commission at no extra cost to you.</span>
     <span>Deals are collected from public posts by the accounts listed above. Prices change quickly; the store's price at checkout is the one that counts.</span>
   </div>
@@ -635,7 +637,8 @@ function renderSources() {
     const n = s.state === "ok" ? s.n + " deals" : s.state === "err" ? s.msg : "loading";
     return `<a class="src ${s.state}" href="${esc(href)}" target="_blank" rel="noopener">${esc(label)} <span class="n">${esc(n)}</span></a>`;
   });
-  $("#sources").innerHTML = items.join("");
+  const shown = items.filter((_, i) => Object.values(sourceState)[i].state !== "err" || location.hash === "#settings");
+  $("#sources").innerHTML = shown.length ? `<span class="srclabel">Deals collected from</span>` + shown.join("") : "";
 }
 function ageHours() { return filter.age || +settings.maxAgeHours || 48; }
 function isCurrent(d) {
@@ -681,12 +684,12 @@ function openDeal(id) {
     ${coverHtml(d, true)}
     <div>${d.artist ? `<div class="by">${esc(d.artist)}</div>` : ""}<h3 id="drawerTitle">${esc(d.album)}</h3></div>
     <div class="pricebig"><span class="now">${money(d.price)}</span>${wasHtml}</div>
-    ${ratingPanel(d, pts)}
     <div class="ctarow">
       <a class="cta" href="${esc(dealLink(d))}" target="_blank" rel="noopener sponsored">Get this deal${d.store ? " at " + esc(d.store) : ""}</a>
       <a class="cta ghost" href="${esc(d.postUrl || "#")}" target="_blank" rel="noopener">See the original post</a>
     </div>
-    <p class="small">Posted ${esc(ago(d.at))} by @${esc(d.handle)}.${ownLink ? " This link searches Amazon with your affiliate tag." : ""}</p>
+    <p class="small">Posted ${esc(ago(d.at))} by ${esc(/^r\//.test(d.handle) || /\./.test(d.handle) && !/bsky\.social$/.test(d.handle) ? d.handle : "@" + d.handle)}.</p>
+    ${ratingPanel(d, pts)}
     ${d.example ? "" : `<div><button class="cta ghost" type="button" data-hide="${esc(d.id)}">Deal expired? Hide it</button><p class="small">Hides it in this browser only.</p></div>`}
     <div class="panel">
       <h4>Prices seen</h4>
@@ -835,6 +838,8 @@ $("#q").addEventListener("input", (e) => { filter.q = e.target.value.trim(); ren
 $("#sort").addEventListener("change", (e) => { filter.sort = e.target.value; render(); });
 $("#refreshBtn").addEventListener("click", refresh);
 $("#settingsBtn").addEventListener("click", openSettings);
+function ownerMode() { const on = location.hash === "#settings" || !/cratehound\.(com|netlify\.app)$/.test(location.hostname); $("#settingsBtn").hidden = !on; }
+ownerMode(); window.addEventListener("hashchange", () => { ownerMode(); renderSources(); });
 
 refresh();
 </script>
