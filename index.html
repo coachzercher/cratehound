@@ -1,0 +1,843 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20120%20120%27%3E%3Ccircle%20cx%3D%2760%27%20cy%3D%2760%27%20r%3D%2758%27%20fill%3D%27%2316181A%27/%3E%3Ccircle%20cx%3D%2760%27%20cy%3D%2760%27%20r%3D%2744%27%20fill%3D%27none%27%20stroke%3D%27%233A3F44%27%20stroke-width%3D%274%27/%3E%3Ccircle%20cx%3D%2760%27%20cy%3D%2760%27%20r%3D%2724%27%20fill%3D%27%23FFB21A%27/%3E%3Ccircle%20cx%3D%2760%27%20cy%3D%2760%27%20r%3D%276%27%20fill%3D%27%2316181A%27/%3E%3C/svg%3E">
+<title>Crate Hound</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Live vinyl record deals collected from deal accounts, with price drops and price comparison.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: a record-store crate — sticky header bar, a "price drops" bin up top, then the full crate as a grid of sleeves; detail opens as a side drawer. */
+:root {
+  --bg: #EDEFEA;
+  --surface: #F8F9F5;
+  --sleeve: #E2E5DE;
+  --ink: #16181A;
+  --muted: #5B6159;
+  --line: #CDD2C8;
+  --sticker: #FFB21A;
+  --sticker-ink: #2A1B00;
+  --teal: #0C5A69;
+  --teal-ink: #FFFFFF;
+  --drop: #C7321F;
+  --good: #2F7A3E;
+  --shadow: 0 1px 0 rgba(22,24,26,.06), 0 6px 18px -10px rgba(22,24,26,.25);
+  --f-display: "Big Shoulders Display", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "Public Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --r: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111315; --surface: #1A1D20; --sleeve: #23272B; --ink: #ECEEE8; --muted: #9AA19A;
+    --line: #2E3337; --sticker: #FFB21A; --sticker-ink: #2A1B00; --teal: #5BB8C9; --teal-ink: #08262C;
+    --drop: #FF6A55; --good: #6CC27D; --shadow: 0 1px 0 rgba(0,0,0,.3), 0 8px 22px -12px rgba(0,0,0,.7);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111315; --surface: #1A1D20; --sleeve: #23272B; --ink: #ECEEE8; --muted: #9AA19A;
+  --line: #2E3337; --sticker: #FFB21A; --sticker-ink: #2A1B00; --teal: #5BB8C9; --teal-ink: #08262C;
+  --drop: #FF6A55; --good: #6CC27D; --shadow: 0 1px 0 rgba(0,0,0,.3), 0 8px 22px -12px rgba(0,0,0,.7);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+img { max-width: 100%; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--ink); }
+a { color: var(--teal); }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+/* Header */
+header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--ink); color: var(--bg); }
+header.top .wrap { display: flex; align-items: center; gap: 16px; padding-block: 10px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; margin-right: auto; }
+.brand .disc { width: 34px; height: 34px; border-radius: 50%; background: repeating-radial-gradient(circle at 50% 50%, #0b0c0d 0 2px, #1d2023 2px 3px); position: relative; flex: none; }
+.brand .disc::after { content: ""; position: absolute; inset: 11px; border-radius: 50%; background: var(--sticker); }
+.brand b { font-family: var(--f-display); font-weight: 900; font-size: 28px; letter-spacing: .02em; text-transform: uppercase; line-height: .82; display: inline-flex; align-items: flex-end; gap: .22em; }
+.brand .w1 { color: #FFB21A; }
+.brand .w2 { color: #EDEFEA; display: inline-flex; align-items: flex-end; }
+.brand .o { width: .87em; height: .87em; margin: 0 .04em -.02em; flex: none; }
+.status { font-family: var(--f-mono); font-size: 12px; opacity: .8; display: flex; align-items: center; gap: 8px; }
+.status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.status .dot.live { background: #4CD07A; box-shadow: 0 0 0 3px rgba(76,208,122,.25); }
+.status .dot.busy { background: var(--sticker); animation: pulse 1s infinite alternate; }
+@keyframes pulse { to { opacity: .35; } }
+.hbtn { background: transparent; border: 1px solid rgba(237,239,234,.3); color: inherit; border-radius: var(--r); padding: 6px 12px; cursor: pointer; font-size: 13px; font-weight: 600; }
+.hbtn:hover { border-color: var(--sticker); color: var(--sticker); }
+header.top .hbtn { color: #EDEFEA; }
+:root[data-theme="dark"] header.top, :root:not([data-theme="light"]) header.top { }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) header.top { background: #000; color: #ECEEE8; } :root:not([data-theme="light"]) body::before { background: #000; } }
+:root[data-theme="dark"] header.top { background: #000; color: #ECEEE8; }
+:root[data-theme="dark"] body::before { background: #000; }
+
+/* Intro */
+.intro { padding-block: 28px 8px; display: grid; gap: 6px; }
+.intro h1 { font-family: var(--f-display); font-weight: 900; font-size: clamp(38px, 6vw, 64px); line-height: .92; text-transform: uppercase; margin: 0; text-wrap: balance; letter-spacing: .005em; }
+.intro p { margin: 0; color: var(--muted); max-width: 62ch; }
+.sources { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.src { display: inline-flex; align-items: center; gap: 6px; font-family: var(--f-mono); font-size: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; color: var(--ink); text-decoration: none; }
+.src .n { color: var(--muted); }
+.src.err { border-color: var(--drop); }
+.src.err .n { color: var(--drop); }
+.src.load .n { color: var(--muted); font-style: italic; }
+
+.banner { margin-block: 14px 0; border: 1px dashed var(--line); background: var(--surface); border-radius: var(--r); padding: 12px 14px; display: grid; gap: 4px; font-size: 14px; }
+.banner strong { font-weight: 700; }
+.banner .btnrow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+
+/* Section heads */
+.sec { padding-block: 26px 8px; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.sec h2 { font-family: var(--f-display); font-weight: 800; text-transform: uppercase; font-size: 30px; line-height: 1; margin: 0; letter-spacing: .01em; }
+.sec .hint { color: var(--muted); font-size: 13px; }
+
+/* Drops bin: horizontal crate */
+.bin { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(250px, 300px); gap: 14px; overflow-x: auto; padding-bottom: 10px; scroll-snap-type: x proximity; }
+.bin .card { scroll-snap-align: start; }
+.bin-empty { color: var(--muted); font-size: 14px; border: 1px dashed var(--line); border-radius: var(--r); padding: 18px; }
+
+/* Controls */
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding-block: 6px 14px; }
+.controls input[type=search] { flex: 1 1 240px; min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 9px 12px; }
+.controls select { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 9px 10px; }
+.chipset { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 12px; cursor: pointer; font-size: 13px; font-weight: 600; }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.count { font-family: var(--f-mono); font-size: 12px; color: var(--muted); margin-left: auto; }
+
+/* Grid of sleeves */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 18px; padding-bottom: 40px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; display: flex; flex-direction: column; cursor: pointer; text-align: left; padding: 0; transition: transform .15s ease, box-shadow .15s ease; min-width: 0; }
+.card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+.cover { position: relative; aspect-ratio: 1 / 1; background: var(--sleeve); overflow: hidden; max-width: 100%; }
+.cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.vinyl { position: absolute; inset: 9%; border-radius: 50%; background: repeating-radial-gradient(circle, #0d0e10 0 1.5px, #1b1d20 1.5px 3px); box-shadow: inset 0 0 0 1px rgba(255,255,255,.05); }
+.vinyl .label { position: absolute; inset: 31%; border-radius: 50%; display: grid; place-items: center; font-family: var(--f-display); font-weight: 900; font-size: clamp(16px, 3vw, 26px); color: #fff; text-transform: uppercase; letter-spacing: .02em; }
+.vinyl .label::after { content: ""; position: absolute; width: 7%; aspect-ratio: 1; border-radius: 50%; background: var(--sleeve); }
+.sticker { position: absolute; right: 10px; bottom: 10px; background: var(--sticker); color: var(--sticker-ink); font-family: var(--f-mono); font-weight: 600; font-size: 17px; padding: 4px 9px; border-radius: 4px; transform: rotate(-3deg); box-shadow: 0 2px 6px rgba(0,0,0,.25); font-variant-numeric: tabular-nums; }
+.sticker s { font-weight: 400; font-size: 12px; opacity: .65; margin-right: 4px; }
+.flag { position: absolute; left: 10px; top: 10px; background: var(--drop); color: #fff; font-family: var(--f-mono); font-weight: 600; font-size: 12px; padding: 3px 7px; border-radius: 3px; letter-spacing: .02em; }
+.flag.low { background: var(--good); }
+.flag.ex { background: var(--ink); color: var(--bg); }
+.meta { padding: 10px 12px 12px; display: grid; gap: 2px; min-width: 0; }
+.artist { font-weight: 700; font-size: 14px; line-height: 1.25; overflow-wrap: anywhere; }
+.album { font-size: 14px; line-height: 1.3; color: var(--ink); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.foot { display: flex; justify-content: space-between; gap: 8px; margin-top: 6px; font-family: var(--f-mono); font-size: 11px; color: var(--muted); }
+.foot span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.empty { grid-column: 1 / -1; color: var(--muted); padding: 30px 0; text-align: center; }
+.skel { background: var(--sleeve); border-radius: var(--r); aspect-ratio: 3 / 4; animation: pulse 1.2s infinite alternate; }
+
+/* Drawer */
+.scrim { position: fixed; inset: 0; background: rgba(10,11,12,.5); z-index: 20; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(480px, 100%); background: var(--bg); z-index: 21; overflow-y: auto; box-shadow: -10px 0 30px rgba(0,0,0,.25); padding: calc(env(safe-area-inset-top, 0px) + 16px) max(18px, env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + 28px) 18px; display: grid; gap: 16px; align-content: start; }
+.drawer .x { justify-self: end; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 6px 12px; cursor: pointer; font-weight: 600; }
+.drawer h3 { font-family: var(--f-display); font-weight: 900; text-transform: uppercase; font-size: 34px; line-height: .95; margin: 0; text-wrap: balance; overflow-wrap: anywhere; }
+.drawer .by { font-weight: 700; font-size: 16px; }
+.drawer .cover { border-radius: var(--r); max-width: 320px; width: 100%; }
+.pricebig { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; font-family: var(--f-mono); }
+.pricebig .now { font-size: 34px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pricebig .was { color: var(--muted); text-decoration: line-through; }
+.pricebig .pct { color: var(--drop); font-weight: 600; }
+.cta { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--teal); color: var(--teal-ink); text-decoration: none; font-weight: 700; padding: 11px 16px; border-radius: var(--r); border: 0; cursor: pointer; }
+.cta.ghost { background: transparent; color: var(--teal); border: 1px solid var(--teal); }
+.ctarow { display: flex; gap: 10px; flex-wrap: wrap; }
+.panel h4 { font-family: var(--f-display); text-transform: uppercase; font-weight: 800; font-size: 20px; margin: 0 0 8px; letter-spacing: .02em; }
+.panel p.small, .small { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+tr:last-child td { border-bottom: 0; }
+td.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+tr.best td.num { color: var(--good); font-weight: 600; }
+.stores { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+.store { display: flex; justify-content: space-between; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); border-radius: var(--r); padding: 9px 11px; text-decoration: none; color: var(--ink); font-weight: 600; font-size: 14px; }
+.store:hover { border-color: var(--teal); }
+.store em { font-style: normal; font-family: var(--f-mono); font-size: 10px; color: var(--good); }
+
+/* Settings */
+.form { display: grid; gap: 14px; }
+.field { display: grid; gap: 5px; }
+.field label { font-weight: 600; font-size: 13px; }
+.field input, .field textarea { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 9px 11px; width: 100%; min-width: 0; }
+.field textarea { min-height: 96px; font-family: var(--f-mono); font-size: 13px; resize: vertical; }
+.rate { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+.grade { display: inline-flex; align-items: center; font-family: var(--f-mono); font-size: 10.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; padding: 2px 6px; border-radius: 3px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.g-great { background: var(--good); border-color: var(--good); color: var(--surface); }
+.g-good { border-color: var(--good); color: var(--good); }
+.g-high { border-color: var(--drop); color: var(--drop); }
+.verdict { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 15px; }
+.verdict .grade { font-size: 12px; padding: 4px 9px; }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; }
+.facts li { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 8px 10px; display: grid; gap: 2px; }
+.facts b { font-family: var(--f-mono); font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.facts span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.chart { margin-top: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 8px; }
+.chart svg { display: block; width: 100%; height: auto; }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .typ { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 4 4; fill: none; }
+.chart .ln { stroke: var(--teal); stroke-width: 2; fill: none; }
+.chart .pt { fill: var(--teal); }
+.chart .now { fill: var(--sticker); stroke: var(--ink); stroke-width: 1.5; }
+.chart text { fill: var(--muted); font-family: var(--f-mono); font-size: 10px; }
+.toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 20px); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 9px 16px; border-radius: var(--r); font-size: 14px; z-index: 30; }
+footer { border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+footer .wrap { padding-block: 18px 30px; display: grid; gap: 6px; }
+@media (max-width: 520px) {
+  .brand b { font-size: 24px; }
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .bin { grid-auto-columns: minmax(200px, 72%); }
+  .sticker { font-size: 14px; }
+}
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<style>html{color-scheme:light dark}body{margin:0}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#" aria-label="Crate Hound home"><b><span class="w1">Crate</span><span class="w2">H<svg class="o" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="58" fill="#EDEFEA"></circle><circle cx="60" cy="60" r="48" fill="none" stroke="#C9CEC6" stroke-width="3"></circle><circle cx="60" cy="60" r="38" fill="none" stroke="#C9CEC6" stroke-width="3"></circle><circle cx="60" cy="60" r="21" fill="#FFB21A"></circle><circle cx="60" cy="60" r="5" fill="#16181A"></circle></svg>und</span></b></a>
+    <span class="status" id="status"><span class="dot" id="dot"></span><span id="statusText">Starting up</span></span>
+    <button class="hbtn" id="refreshBtn" type="button">Refresh</button>
+    <button class="hbtn" id="settingsBtn" type="button">Sources &amp; links</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="intro">
+    <h1>Vinyl deals, sniffed out</h1>
+    <p>New record deals from the deal accounts below, with the biggest price drops pulled to the top. Tap any record to compare prices and check other stores.</p>
+    <div class="sources" id="sources" aria-label="Deal sources"></div>
+    <div class="banner" id="banner" hidden></div>
+  </section>
+
+  <div class="sec"><h2>Price drops</h2><span class="hint" id="dropHint">Records priced well below what they were seen at before</span></div>
+  <div class="bin" id="drops"></div>
+
+  <div class="sec"><h2>All deals</h2></div>
+  <div class="controls">
+    <input type="search" id="q" placeholder="Search artist or album" aria-label="Search artist or album">
+    <div class="chipset" role="group" aria-label="Price limit">
+      <button class="chip" type="button" data-max="0" aria-pressed="true">Any price</button>
+      <button class="chip" type="button" data-max="15" aria-pressed="false">Under $15</button>
+      <button class="chip" type="button" data-max="25" aria-pressed="false">Under $25</button>
+    </div>
+    <div class="chipset" role="group" aria-label="How recent">
+      <button class="chip" type="button" data-age="24" aria-pressed="false">Last 24 hours</button>
+      <button class="chip" type="button" data-age="48" aria-pressed="false">Last 2 days</button>
+      <button class="chip" type="button" data-age="168" aria-pressed="false">Last week</button>
+    </div>
+    <select id="sort" aria-label="Sort deals">
+      <option value="new">Newest first</option>
+      <option value="drop">Best deal</option>
+      <option value="low">Lowest price</option>
+    </select>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="grid" id="grid"></div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span><strong>Affiliate disclosure:</strong> some links on this page are affiliate links. If you buy through them, this site may earn a commission at no extra cost to you.</span>
+    <span>Deals are collected from public posts by the accounts listed above. Prices change quickly; the store's price at checkout is the one that counts.</span>
+  </div>
+</footer>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" hidden aria-modal="true" role="dialog" aria-labelledby="drawerTitle"></aside>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* ==========================================================================
+   SITE SETTINGS — edit these for your public site.
+   Visitors' own changes in "Sources & links" are kept only in their browser.
+   ========================================================================== */
+const CONFIG = {
+  // Bluesky accounts that post vinyl deals (handles, no @).
+  blueskySources: ["vinylsale.bsky.social", "recorddrops.bsky.social", "thevinyldeals.bsky.social"],
+  // Your affiliate IDs. Leave blank until you're approved.
+  amazonTag: "",            // Amazon Associates tracking ID, e.g. "yourname-20"
+  ebayCampaignId: "",       // eBay Partner Network campaign ID (10 digits)
+  // Optional affiliate link templates for other stores. Use {q} where the search words go.
+  walmartTemplate: "",      // from Walmart's affiliate program (Impact)
+  targetTemplate: "",       // from Target's affiliate program (Impact)
+  // When you have an Amazon tag, send "Get this deal" through your own Amazon link
+  // instead of the poster's link, so the commission is yours.
+  useMyAmazonLinks: true,
+  // A drop this big (percent) counts as a significant price drop.
+  dropThreshold: 20,
+  // Hide deals posted more than this many hours ago (most sale prices end within a day or two).
+  maxAgeHours: 48,
+  // Optional: URL of your feed collector (Reddit + RSS sources). Leave blank to skip.
+  // Your Netlify collector (adds Reddit + RSS and shared price history). On Netlify, keep "/api/deals".
+  collectorUrl: "/api/deals"
+};
+/* ========================================================================== */
+
+const LS_SETTINGS = "cdd.settings.v1";
+const LS_HISTORY = "cdd.history.v1";
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+function lsGet(k, fallback) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fallback; } catch (e) { return fallback; } }
+function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+
+let settings = Object.assign({}, CONFIG, lsGet(LS_SETTINGS, {}));
+let deals = [];
+let sourceState = {};   // handle -> {state, n, msg}
+let history = lsGet(LS_HISTORY, {});
+const LS_HIDDEN = "cdd.hidden.v1";
+let hidden = lsGet(LS_HIDDEN, {});
+let filter = { q: "", max: 0, sort: "new", age: 0 };
+let usingExamples = false;
+
+/* ---------- Status ---------- */
+function setStatus(text, mode) {
+  $("#statusText").textContent = text;
+  const d = $("#dot");
+  d.className = "dot" + (mode ? " " + mode : "");
+}
+let toastTimer;
+function toast(msg) {
+  const t = $("#toast"); t.textContent = msg; t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 2600);
+}
+
+/* ---------- Fetching: direct (your own site) or through the Claude app's browser ---------- */
+let directWorks = null; // unknown until first try
+let mcpPromise = null;
+let browserTab = null;
+
+function getMcp() {
+  if (!mcpPromise) {
+    mcpPromise = (window.claude && typeof window.claude.use === "function")
+      ? window.claude.use("mcp").catch(() => null)
+      : Promise.resolve(null);
+  }
+  return mcpPromise;
+}
+function textOf(r) {
+  return ((r && r.content) || []).filter(c => c && c.type === "text").map(c => c.text).join("\n");
+}
+function parseLooseJson(p) {
+  if (p && typeof p === "object" && !Array.isArray(p)) return p;
+  const s = typeof p === "string" ? p : "";
+  const a = s.indexOf("{"), b = s.lastIndexOf("}");
+  if (a < 0 || b <= a) throw new Error("The page did not return feed data.");
+  return JSON.parse(s.slice(a, b + 1));
+}
+async function viaClaudeBrowser(url) {
+  const mcp = await getMcp();
+  if (!mcp) { const e = new Error("no_route"); e.code = "no_route"; throw e; }
+  const S = "host:claude_browser";
+  if (!browserTab) {
+    const r = await mcp.callTool(S, "preview_start", { url });
+    const m = textOf(r).match(/tabId\s*[:=]?\s*([\w-]+)/i);
+    browserTab = m ? m[1] : "active";
+  } else {
+    await mcp.callTool(S, "navigate", browserTab === "active" ? { url } : { url, tabId: browserTab });
+  }
+  const t = await mcp.callTool(S, "get_page_text", browserTab === "active" ? { max_chars: 2000000 } : { tabId: browserTab, max_chars: 2000000 });
+  return parseLooseJson(t.payload !== undefined ? t.payload : textOf(t));
+}
+async function getJson(url) {
+  if (directWorks !== false) {
+    try {
+      const r = await fetch(url, { headers: { Accept: "application/json" } });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const j = await r.json();
+      directWorks = true;
+      return j;
+    } catch (e) {
+      if (directWorks === true) throw e; // the site itself failed, not the route
+      directWorks = false;
+    }
+  }
+  return viaClaudeBrowser(url);
+}
+
+/* ---------- Parsing Bluesky deal posts ---------- */
+const PRICE_RE = /(?:US)?\$\s?(\d{1,4}(?:[.,]\d{2})?)/;
+function num(s) { return parseFloat(String(s).replace(",", ".")); }
+function storeFromUrl(u) {
+  if (!u) return "";
+  let h = ""; try { h = new URL(u).hostname.replace(/^www\./, ""); } catch (e) { return ""; }
+  const map = [
+    [/amazon\.|amzn\.|link\.amazon/, "Amazon"], [/walmart/, "Walmart"], [/target\.com/, "Target"],
+    [/bestbuy|bby\./, "Best Buy"], [/ebay/, "eBay"], [/discogs/, "Discogs"], [/roughtrade/, "Rough Trade"],
+    [/urbanoutfitters/, "Urban Outfitters"], [/barnesandnoble|bn\.com/, "Barnes & Noble"],
+    [/deepdiscount/, "Deep Discount"], [/bandcamp/, "Bandcamp"], [/turntablelab/, "Turntable Lab"],
+    [/soundofvinyl/, "Sound of Vinyl"], [/musicdirect/, "Music Direct"], [/rhino/, "Rhino"]
+  ];
+  for (const [re, name] of map) if (re.test(h)) return name;
+  return h.split(".").slice(-2, -1)[0] ? h : "";
+}
+function cleanTitle(s) {
+  return s.replace(/#[\w-]+/g, "").replace(/\b\d{1,2}\s?%\s*off\b/gi, "").replace(/\b(?:now|only|just|for|deal|price drop|on sale)\s*:?\s*$/i, "").replace(/https?:\/\/\S+|\b[\w.-]+\.(?:com|to|net|co|ly|amazon)\/\S*/gi, "")
+          .replace(/[\s\-–—:|•]+$/g, "").replace(/^[\s\-–—:|•🔥💿🎶⚡️✨]+/gu, "").replace(/\s{2,}/g, " ").trim();
+}
+function parsePost(item, fallbackHandle) {
+  const p = item && item.post; if (!p || !p.record) return null;
+  const text = String(p.record.text || "");
+  const lines = text.split("\n").map(s => s.trim()).filter(Boolean);
+  let line = lines.find(l => PRICE_RE.test(l));
+  if (!line) return null;
+  const pm = line.match(PRICE_RE);
+  const price = num(pm[1]);
+  if (!(price > 0 && price < 1000)) return null;
+
+  let titlePart = line.slice(0, pm.index);
+  if (cleanTitle(titlePart).length < 3) titlePart = lines.find(l => !PRICE_RE.test(l) && !/^#/.test(l)) || line.replace(PRICE_RE, "");
+  let bracketStore = "";
+  const bm = titlePart.match(/^\s*[\[(]([^\])]{2,40})[\])]\s*/);
+  if (bm) { bracketStore = bm[1].trim(); titlePart = titlePart.slice(bm[0].length); }
+  let title = cleanTitle(titlePart);
+  let artist = "", album = title;
+  const sp = title.split(/\s+[-–—]\s+/);
+  if (sp.length >= 2) { artist = sp[0].trim(); album = sp.slice(1).join(" - ").trim(); }
+  if (!album) return null;
+
+  let was = null;
+  const wm = text.match(/(?:was|reg(?:ular)?|list|orig(?:inal(?:ly)?)?|msrp)\.?\s*:?\s*\$\s?(\d{1,4}(?:[.,]\d{2})?)/i)
+          || text.match(/\$\s?(\d{1,4}(?:[.,]\d{2})?)\s*(?:→|->|➡️?|to)\s*\$\s?\d/i);
+  if (wm) { const w = num(wm[1]); if (w > price) was = w; }
+  if (!was) { const pc = text.match(/(\d{1,2})\s?%\s*off/i); if (pc) { const pct = +pc[1]; if (pct > 0 && pct < 95) was = Math.round(price / (1 - pct / 100) * 100) / 100; } }
+
+  const facetLinks = (p.record.facets || []).flatMap(f => (f.features || []).filter(x => x.uri).map(x => x.uri));
+  const emb = p.embed || {};
+  const ext = emb.external || (emb.media && emb.media.external) || null;
+  const link = facetLinks[0] || (ext && ext.uri) || "";
+  const imgs = emb.images || (emb.media && emb.media.images) || [];
+  const image = (imgs[0] && (imgs[0].thumb || imgs[0].fullsize)) || (ext && ext.thumb) || "";
+  const handle = (p.author && p.author.handle) || fallbackHandle;
+  const rkey = String(p.uri || "").split("/").pop();
+  const fmt = (album.match(/\((\d?\s?x?\s?LP|\d?LP|[^)]*(?:vinyl|color|colour|edition|reissue)[^)]*)\)/i) || [])[1] || "";
+  return {
+    id: p.uri, artist, album, title: artist ? artist + " – " + album : album, format: fmt,
+    price, was, link, store: storeFromUrl(link) || bracketStore, image, handle,
+    postUrl: rkey ? "https://bsky.app/profile/" + handle + "/post/" + rkey : "https://bsky.app/profile/" + handle,
+    at: p.indexedAt || p.record.createdAt || new Date().toISOString(), source: "bluesky"
+  };
+}
+function keyOf(d) {
+  return ((d.artist || "") + " " + d.album).toLowerCase()
+    .replace(/\([^)]*\)|\[[^\]]*\]/g, "").replace(/\b(vinyl|lp|2lp|2xlp|edition|reissue|remaster(?:ed)?)\b/g, "")
+    .replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+/* ---------- Loading ---------- */
+async function loadBluesky(handle) {
+  sourceState[handle] = { state: "load" }; renderSources();
+  try {
+    const url = "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=" + encodeURIComponent(handle) + "&limit=100&filter=posts_no_replies";
+    const j = await getJson(url);
+    if (j.error) throw new Error(j.message || j.error);
+    const items = (j.feed || []).map(it => parsePost(it, handle)).filter(Boolean);
+    sourceState[handle] = { state: "ok", n: items.length };
+    return items;
+  } catch (e) {
+    sourceState[handle] = { state: "err", msg: e.code === "no_route" ? "Can't load here" : (e.code ? e.code.replace(/_/g, " ") : (e.message || "Failed")), code: e.code };
+    if (e.code === "no_route") throw e;
+    return [];
+  } finally { renderSources(); }
+}
+async function loadCollector() {
+  if (!settings.collectorUrl) return null;
+  try {
+    const r = await fetch(settings.collectorUrl, { headers: { Accept: "application/json" } });
+    if (!r.ok || !/json/.test(r.headers.get("content-type") || "")) return null;
+    const j = await r.json();
+    const list = (j.deals || []).filter(d => d && d.album && d.price > 0)
+      .map(d => Object.assign({ store: storeFromUrl(d.link), at: new Date().toISOString(), handle: d.source || "collector" }, d));
+    sourceState = {};
+    for (const d of list) { const s = sourceState[d.handle] || (sourceState[d.handle] = { state: "ok", n: 0 }); s.n++; }
+    for (const e of j.errors || []) {
+      const m = String(e).match(/^@?([^:]+):\s*(.*)$/); if (!m) continue;
+      sourceState[m[1]] = { state: "err", msg: m[2].length > 40 ? "Not loading" : m[2] };
+    }
+    renderSources();
+    return list;
+  } catch (e) { return null; }
+}
+
+async function refresh() {
+  setStatus("Checking sources…", "busy");
+  $("#refreshBtn").disabled = true;
+  if (!deals.length) renderSkeleton();
+  const handles = (settings.blueskySources || []).map(h => h.replace(/^@/, "").trim()).filter(Boolean);
+  let all = []; let noRoute = false;
+  const fromCollector = await loadCollector();
+  const viaCollector = !!(fromCollector && fromCollector.length);
+  if (viaCollector) all = fromCollector;
+  else { sourceState = {}; handles.forEach(h => sourceState[h] = { state: "load" }); renderSources(); }
+  if (!viaCollector) for (const h of handles) {   // one at a time: the Claude app route uses a single browser tab
+    try { all = all.concat(await loadBluesky(h)); }
+    catch (e) { if (e.code === "no_route") { noRoute = true; handles.forEach(x => { if (sourceState[x].state === "load") sourceState[x] = { state: "err", msg: "Can't load here" }; }); break; } }
+  }
+  $("#refreshBtn").disabled = false;
+
+  if (!all.length) {
+    if (noRoute || directWorks === false) showNoRoute();
+    useExamples();
+    setStatus("Showing examples", "");
+    return;
+  }
+  usingExamples = false; $("#banner").hidden = true;
+  const seen = new Set(); deals = all.filter(d => !seen.has(d.id) && seen.add(d.id));
+  if (!viaCollector) recordHistory(deals);
+  computeDrops(deals);
+  setStatus("Updated " + new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) + " · " + deals.length + " deals", "live");
+  render();
+}
+
+/* ---------- Price history & drops ---------- */
+function recordHistory(list) {
+  for (const d of list) {
+    const k = keyOf(d); if (!k) continue;
+    const h = history[k] || (history[k] = { s: [] });
+    if (!h.s.some(x => x.id === d.id)) h.s.push({ id: d.id, p: d.price, t: d.at, src: d.handle, l: d.link });
+    h.s.sort((a, b) => a.t < b.t ? -1 : 1);
+    if (h.s.length > 25) h.s = h.s.slice(-25);
+    h.u = Date.now();
+  }
+  const keys = Object.keys(history);
+  if (keys.length > 3000) keys.sort((a, b) => (history[a].u || 0) - (history[b].u || 0)).slice(0, keys.length - 3000).forEach(k => delete history[k]);
+  lsSet(LS_HISTORY, history);
+}
+/* Rating: compare the price with earlier prices for the same record.
+   typical = median price seen in the 90 days before this post; falls back to the post's stated regular price. */
+function median(a) { const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; }
+function rate(d, points) {
+  const DAY = 864e5, t = Date.parse(d.at);
+  const prior = (points || []).filter(p => Date.parse(p[1]) < t - 6e4);
+  const recent = prior.filter(p => t - Date.parse(p[1]) < 90 * DAY).map(p => p[0]);
+  const all = prior.map(p => p[0]);
+  const r = { n: prior.length, typical: null, low: null, high: null, pct: null, basis: "none", grade: "new" };
+  if (all.length) { r.low = Math.min(...all); r.high = Math.max(...all); }
+  if (recent.length >= 2) { r.typical = median(recent); r.basis = "history"; }
+  else if (d.was) { r.typical = d.was; r.basis = "list"; }
+  else if (recent.length === 1) { r.typical = recent[0]; r.basis = "history"; }
+  if (r.typical) r.pct = Math.round((r.typical - d.price) / r.typical * 100);
+  r.lowest = all.length >= 2 && d.price < r.low;
+  if (r.pct === null) r.grade = r.lowest ? "great" : "new";
+  else if (r.pct >= 30 || (r.lowest && r.pct >= 10)) r.grade = "great";
+  else if (r.pct >= 15) r.grade = "good";
+  else if (r.pct >= 5) r.grade = "fair";
+  else if (r.pct > -5) r.grade = "typical";
+  else r.grade = "high";
+  return r;
+}
+function localPoints(d) {
+  const h = history[keyOf(d)];
+  return h ? h.s.filter(x => x.id !== d.id).map(x => [x.p, x.t, x.src, storeFromUrl(x.l)]) : [];
+}
+function pointsFor(d) { return d.hist || localPoints(d); }
+function computeDrops(list) {
+  const th = (+settings.dropThreshold || 20) / 100;
+  for (const d of list) {
+    d.rating = d.rating || rate(d, pointsFor(d));
+    const r = d.rating;
+    d.ref = r.typical; d.dropPct = r.pct > 0 ? r.pct / 100 : 0; d.lowSeen = !!r.lowest;
+    d.isDrop = d.dropPct >= th;
+  }
+}
+const GRADE = { great: "Great deal", good: "Good deal", fair: "Fair price", typical: "Usual price", high: "Above usual", new: "New" };
+function gradeHtml(r) { return r ? `<span class="grade g-${r.grade}">${GRADE[r.grade]}</span>` : ""; }
+function rateText(r) {
+  if (!r) return "";
+  if (r.pct === null) return r.lowest ? "Lowest price seen" : "First time seen";
+  const vs = r.basis === "list" ? "regular price" : "usual";
+  if (r.pct >= 1) return `${r.pct}% below ${vs}`;
+  if (r.pct <= -1) return `${-r.pct}% above ${vs}`;
+  return "About the usual price";
+}
+
+/* ---------- Links (affiliate) ---------- */
+function searchQ(d) { return ((d.artist ? d.artist + " " : "") + d.album.replace(/\([^)]*\)/g, "")).trim() + " vinyl"; }
+function amazonLink(d) {
+  const q = searchQ(d);
+  const asin = (d.link || "").match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
+  if (asin) return "https://www.amazon.com/dp/" + asin[1] + (settings.amazonTag ? "?tag=" + encodeURIComponent(settings.amazonTag) : "");
+  return "https://www.amazon.com/s?k=" + encodeURIComponent(q) + "&i=popular" + (settings.amazonTag ? "&tag=" + encodeURIComponent(settings.amazonTag) : "");
+}
+function ebayLink(d) {
+  let u = "https://www.ebay.com/sch/i.html?_nkw=" + encodeURIComponent(searchQ(d)) + "&_sacat=176985";
+  if (settings.ebayCampaignId) u += "&mkcid=1&mkrid=711-53200-19255-0&siteid=0&campid=" + encodeURIComponent(settings.ebayCampaignId) + "&toolid=10001&mkevt=1";
+  return u;
+}
+function tpl(t, q, plain) { return t && t.includes("{q}") ? t.replace("{q}", encodeURIComponent(q)) : plain; }
+function storeLinks(d) {
+  const q = searchQ(d);
+  return [
+    { name: "Amazon", url: amazonLink(d), aff: !!settings.amazonTag },
+    { name: "eBay", url: ebayLink(d), aff: !!settings.ebayCampaignId },
+    { name: "Walmart", url: tpl(settings.walmartTemplate, q, "https://www.walmart.com/search?q=" + encodeURIComponent(q)), aff: !!settings.walmartTemplate },
+    { name: "Target", url: tpl(settings.targetTemplate, q, "https://www.target.com/s?searchTerm=" + encodeURIComponent(q)), aff: !!settings.targetTemplate },
+    { name: "Discogs", url: "https://www.discogs.com/search/?q=" + encodeURIComponent(q.replace(/ vinyl$/, "")) + "&type=release&format_exact=Vinyl", aff: false }
+  ];
+}
+function dealLink(d) {
+  if (settings.useMyAmazonLinks && settings.amazonTag && d.store === "Amazon") return amazonLink(d);
+  return d.link || amazonLink(d);
+}
+
+/* ---------- Rendering ---------- */
+function hueOf(s) { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) % 360; return h; }
+function initials(d) {
+  const w = (d.artist || d.album).replace(/^the\s+/i, "").split(/\s+/).filter(Boolean);
+  return (w[0] ? w[0][0] : "?") + (w[1] ? w[1][0] : "");
+}
+function coverHtml(d, big) {
+  const h = hueOf(d.title);
+  const label = `<div class="vinyl" aria-hidden="true"><div class="label" style="background:hsl(${h} 62% 42%)">${esc(initials(d))}</div></div>`;
+  const img = d.image ? `<img src="${esc(d.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : "";
+  return `<div class="cover">${label}${img}${big ? "" : stickerHtml(d)}${flagHtml(d)}</div>`;
+}
+function money(n) { return "$" + (Math.round(n * 100) / 100).toFixed(n % 1 ? 2 : 0); }
+function stickerHtml(d) { return `<span class="sticker">${d.ref && d.isDrop ? `<s>${money(d.ref)}</s>` : ""}${money(d.price)}</span>`; }
+function flagHtml(d) {
+  if (d.example) return `<span class="flag ex">EXAMPLE</span>`;
+  if (d.isDrop) return `<span class="flag">−${Math.round(d.dropPct * 100)}%</span>`;
+  if (d.lowSeen) return `<span class="flag low">LOWEST SEEN</span>`;
+  return "";
+}
+function ago(iso) {
+  const s = (Date.now() - Date.parse(iso)) / 1000;
+  if (!(s >= 0)) return "";
+  if (s < 3600) return Math.max(1, Math.round(s / 60)) + "m ago";
+  if (s < 86400) return Math.round(s / 3600) + "h ago";
+  return Math.round(s / 86400) + "d ago";
+}
+function cardHtml(d) {
+  return `<button class="card" type="button" data-id="${esc(d.id)}">${coverHtml(d)}
+    <div class="meta">${d.artist ? `<div class="artist">${esc(d.artist)}</div>` : ""}<div class="album">${esc(d.album)}</div>
+    <div class="rate">${gradeHtml(d.rating)}<span>${esc(rateText(d.rating))}</span></div>
+    <div class="foot"><span>${esc(d.store || "Store")}</span><span>${esc(ago(d.at))}</span></div></div></button>`;
+}
+function renderSkeleton() {
+  $("#grid").innerHTML = Array.from({ length: 8 }, () => `<div class="skel"></div>`).join("");
+  $("#drops").innerHTML = Array.from({ length: 3 }, () => `<div class="skel"></div>`).join("");
+}
+function renderSources() {
+  const items = Object.entries(sourceState).map(([h, s]) => {
+    const isBsky = /\.bsky\.social$/.test(h) || !/[./]/.test(h);
+    const label = h.startsWith("r/") ? h : isBsky ? "@" + h : h;
+    const href = h.startsWith("r/") ? "https://www.reddit.com/" + h : isBsky ? "https://bsky.app/profile/" + h : "https://" + h;
+    const n = s.state === "ok" ? s.n + " deals" : s.state === "err" ? s.msg : "loading";
+    return `<a class="src ${s.state}" href="${esc(href)}" target="_blank" rel="noopener">${esc(label)} <span class="n">${esc(n)}</span></a>`;
+  });
+  $("#sources").innerHTML = items.join("");
+}
+function ageHours() { return filter.age || +settings.maxAgeHours || 48; }
+function isCurrent(d) {
+  if (d.example) return true;
+  if (hidden[d.id]) return false;
+  return (Date.now() - Date.parse(d.at)) / 36e5 <= ageHours();
+}
+function visible() {
+  const q = filter.q.toLowerCase();
+  let list = deals.filter(isCurrent).filter(d => (!filter.max || d.price < filter.max) && (!q || d.title.toLowerCase().includes(q)));
+  if (filter.sort === "low") list.sort((a, b) => a.price - b.price);
+  else if (filter.sort === "drop") list.sort((a, b) => ((b.rating && b.rating.pct) ?? -999) - ((a.rating && a.rating.pct) ?? -999) || (a.at < b.at ? 1 : -1));
+  else list.sort((a, b) => a.at < b.at ? 1 : -1);
+  return list;
+}
+function render() {
+  const drops = deals.filter(d => d.isDrop && isCurrent(d)).sort((a, b) => b.dropPct - a.dropPct).slice(0, 16);
+  $("#dropHint").textContent = `Records priced ${settings.dropThreshold}% or more below their usual price`;
+  $("#drops").innerHTML = drops.length ? drops.map(cardHtml).join("")
+    : `<div class="bin-empty">No drops of ${settings.dropThreshold}% or more right now. Drops show up here when a record is posted below its regular price, or below a price this page has seen before. The more often the page is checked, the more history it has to compare against.</div>`;
+  const list = visible();
+  $("#grid").innerHTML = list.length ? list.map(cardHtml).join("") : `<div class="empty">No deals match. Try a longer time range, a different search, or a higher price limit.</div>`;
+  const cur = deals.filter(isCurrent).length;
+  $("#count").textContent = list.length + " shown · " + (deals.length - cur) + " older or hidden";
+  document.querySelectorAll(".chip[data-age]").forEach(x => x.setAttribute("aria-pressed", +x.dataset.age === ageHours() ? "true" : "false"));
+}
+
+/* ---------- Detail drawer ---------- */
+function openDeal(id) {
+  const d = deals.find(x => x.id === id); if (!d) return;
+  const k = keyOf(d);
+  const seen = deals.filter(x => keyOf(x) === k);
+  const pts = pointsFor(d);
+  const rows = new Map();
+  for (const x of seen) rows.set(x.price + "|" + x.at, { p: x.price, t: x.at, src: x.handle, l: x.link, store: x.store });
+  for (const x of pts) { const key = x[0] + "|" + x[1]; if (!rows.has(key)) rows.set(key, { p: x[0], t: x[1], src: x[2] || "", l: "", store: x[3] || "" }); }
+  const r = [...rows.values()].sort((a, b) => a.p - b.p || (a.t < b.t ? 1 : -1)).slice(0, 30);
+  const best = r.length ? r[0].p : d.price;
+  const wasHtml = d.ref && d.dropPct > 0 ? `<span class="was">${money(d.ref)}</span><span class="pct">−${Math.round(d.dropPct * 100)}%</span>` : "";
+  const ownLink = settings.useMyAmazonLinks && settings.amazonTag && d.store === "Amazon";
+  $("#drawer").innerHTML = `
+    <button class="x" type="button" data-close>Close</button>
+    ${coverHtml(d, true)}
+    <div>${d.artist ? `<div class="by">${esc(d.artist)}</div>` : ""}<h3 id="drawerTitle">${esc(d.album)}</h3></div>
+    <div class="pricebig"><span class="now">${money(d.price)}</span>${wasHtml}</div>
+    ${ratingPanel(d, pts)}
+    <div class="ctarow">
+      <a class="cta" href="${esc(dealLink(d))}" target="_blank" rel="noopener sponsored">Get this deal${d.store ? " at " + esc(d.store) : ""}</a>
+      <a class="cta ghost" href="${esc(d.postUrl || "#")}" target="_blank" rel="noopener">See the original post</a>
+    </div>
+    <p class="small">Posted ${esc(ago(d.at))} by @${esc(d.handle)}.${ownLink ? " This link searches Amazon with your affiliate tag." : ""}</p>
+    ${d.example ? "" : `<div><button class="cta ghost" type="button" data-hide="${esc(d.id)}">Deal expired? Hide it</button><p class="small">Hides it in this browser only.</p></div>`}
+    <div class="panel">
+      <h4>Prices seen</h4>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Price</th><th>Store</th><th>Posted by</th><th>When</th></tr></thead>
+        <tbody>${r.map(x => `<tr class="${x.p === best ? "best" : ""}"><td class="num">${money(x.p)}</td><td>${x.l ? `<a href="${esc(x.l)}" target="_blank" rel="noopener sponsored">${esc(x.store || "Link")}</a>` : esc(x.store || "—")}</td><td>${esc(x.src ? (/^r\/|\./.test(x.src) && !/bsky\.social$/.test(x.src) ? x.src : "@" + x.src) : "—")}</td><td>${esc(ago(x.t))}</td></tr>`).join("")}</tbody>
+      </table></div>
+      <p class="small">Every price this page has seen for this record across your sources. The lowest is highlighted.</p>
+    </div>
+    <div class="panel">
+      <h4>Check other stores</h4>
+      <div class="stores">${storeLinks(d).map(s => `<a class="store" href="${esc(s.url)}" target="_blank" rel="noopener sponsored">${esc(s.name)}${s.aff ? "<em>yours</em>" : ""}</a>`).join("")}</div>
+      <p class="small">Opens a search for this record at each store. Stores marked "yours" use your affiliate ID.</p>
+    </div>`;
+  showDrawer();
+}
+function ratingPanel(d, pts) {
+  const r = d.rating; if (!r) return "";
+  let why;
+  if (r.basis === "history") why = `Compared with ${r.n} earlier ${r.n === 1 ? "price" : "prices"} for this record. The usual price is the middle price seen in the 90 days before this post.`;
+  else if (r.basis === "list") why = "No earlier prices for this record yet, so this compares with the regular price in the post.";
+  else why = "This record hasn't been seen before. Its rating fills in as more prices come in.";
+  const facts = [];
+  if (r.typical) facts.push(`<li><b>${money(r.typical)}</b><span>${r.basis === "list" ? "Regular price" : "Usual price"}</span></li>`);
+  if (r.low !== null) facts.push(`<li><b>${money(r.low)}</b><span>Lowest before</span></li>`);
+  if (r.high !== null) facts.push(`<li><b>${money(r.high)}</b><span>Highest seen</span></li>`);
+  return `<div class="panel"><h4>How good is this deal?</h4>
+    <div class="verdict">${gradeHtml(r)}<span>${esc(rateText(r))}${r.lowest && r.pct !== null ? " · lowest price seen" : ""}</span></div>
+    ${facts.length ? `<ul class="facts">${facts.join("")}</ul>` : ""}
+    ${chartSvg(d, pts, r)}
+    <p class="small">${why}</p></div>`;
+}
+function chartSvg(d, pts, r) {
+  const data = pts.map(p => ({ p: p[0], t: Date.parse(p[1]) })).filter(x => x.t && x.p > 0);
+  if (!data.some(x => x.p === d.price && Math.abs(x.t - Date.parse(d.at)) < 6e4)) data.push({ p: d.price, t: Date.parse(d.at), cur: true });
+  if (data.length < 2) return "";
+  data.sort((a, b) => a.t - b.t);
+  const W = 340, H = 140, L = 44, R = 10, T = 12, B = 22;
+  let lo = Math.min(...data.map(x => x.p)), hi = Math.max(...data.map(x => x.p));
+  if (r.typical) { lo = Math.min(lo, r.typical); hi = Math.max(hi, r.typical); }
+  const pad = Math.max(1, (hi - lo) * 0.15); lo = Math.max(0, lo - pad); hi = hi + pad;
+  const t0 = data[0].t, t1 = data[data.length - 1].t || t0 + 1, span = Math.max(1, t1 - t0);
+  const x = t => L + (t - t0) / span * (W - L - R), y = p => T + (hi - p) / (hi - lo) * (H - T - B);
+  const line = data.map(v => `${x(v.t).toFixed(1)},${y(v.p).toFixed(1)}`).join(" ");
+  const cur = data.find(v => v.cur) || data.reduce((a, b) => (Math.abs(b.t - Date.parse(d.at)) < Math.abs(a.t - Date.parse(d.at)) ? b : a));
+  const fmtD = t => new Date(t).toLocaleDateString([], { month: "short", day: "numeric" });
+  return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Price history for this record">
+    <line class="grid" x1="${L}" x2="${W - R}" y1="${y(hi).toFixed(1)}" y2="${y(hi).toFixed(1)}"></line>
+    <line class="grid" x1="${L}" x2="${W - R}" y1="${y(lo).toFixed(1)}" y2="${y(lo).toFixed(1)}"></line>
+    <text x="${L - 6}" y="${(y(hi) + 3).toFixed(1)}" text-anchor="end">${money(hi)}</text>
+    <text x="${L - 6}" y="${(y(lo) + 3).toFixed(1)}" text-anchor="end">${money(lo)}</text>
+    ${r.typical ? `<line class="typ" x1="${L}" x2="${W - R}" y1="${y(r.typical).toFixed(1)}" y2="${y(r.typical).toFixed(1)}"></line><text x="${W - R}" y="${(y(r.typical) - 4).toFixed(1)}" text-anchor="end">usual ${money(r.typical)}</text>` : ""}
+    <polyline class="ln" points="${line}"></polyline>
+    ${data.map(v => `<circle class="pt" cx="${x(v.t).toFixed(1)}" cy="${y(v.p).toFixed(1)}" r="2.5"></circle>`).join("")}
+    <circle class="now" cx="${x(cur.t).toFixed(1)}" cy="${y(cur.p).toFixed(1)}" r="5"></circle>
+    <text x="${L}" y="${H - 6}">${fmtD(t0)}</text><text x="${W - R}" y="${H - 6}" text-anchor="end">${fmtD(t1)}</text>
+  </svg></div>`;
+}
+function showDrawer() { $("#drawer").hidden = false; $("#scrim").hidden = false; $("#drawer").querySelector("[data-close]").focus(); }
+function closeDrawer() { $("#drawer").hidden = true; $("#scrim").hidden = true; }
+
+/* ---------- Settings ---------- */
+function openSettings() {
+  $("#drawer").innerHTML = `
+    <button class="x" type="button" data-close>Close</button>
+    <h3 id="drawerTitle">Sources &amp; links</h3>
+    <form class="form" id="setForm">
+      <div class="field"><label for="sBsky">Bluesky deal accounts (one per line)</label>
+        <textarea id="sBsky">${esc((settings.blueskySources || []).join("\n"))}</textarea>
+        <span class="small">Paste a handle like vinylsale.bsky.social, or a link to the account or one of its posts.</span></div>
+      <div class="field"><label for="sAmz">Amazon Associates tracking ID</label><input id="sAmz" value="${esc(settings.amazonTag)}" placeholder="yourname-20" autocomplete="off"></div>
+      <div class="field"><label for="sEbay">eBay Partner Network campaign ID</label><input id="sEbay" value="${esc(settings.ebayCampaignId)}" placeholder="10-digit number" inputmode="numeric" autocomplete="off"></div>
+      <div class="field"><label for="sWal">Walmart affiliate link template</label><input id="sWal" value="${esc(settings.walmartTemplate)}" placeholder="Your Impact link with {q} for the search words" autocomplete="off"></div>
+      <div class="field"><label for="sTgt">Target affiliate link template</label><input id="sTgt" value="${esc(settings.targetTemplate)}" placeholder="Your Impact link with {q} for the search words" autocomplete="off"></div>
+      <div class="field"><label for="sTh">Significant drop (percent)</label><input id="sTh" type="number" min="5" max="90" value="${esc(settings.dropThreshold)}"></div>
+      <div class="field"><label for="sAge">Hide deals older than (hours)</label><input id="sAge" type="number" min="6" max="720" value="${esc(settings.maxAgeHours)}"></div>
+      <div class="field"><label for="sCol">Feed collector URL (for Reddit and RSS sources)</label><input id="sCol" value="${esc(settings.collectorUrl)}" placeholder="https://your-collector.workers.dev/deals" autocomplete="off"></div>
+      <div class="ctarow"><button class="cta" type="submit">Save and refresh</button><button class="cta ghost" type="button" id="resetSet">Reset to site defaults</button></div>
+      <p class="small">These changes are saved in this browser only. To change them for every visitor, edit the SITE SETTINGS block at the top of the page's code.</p>
+    </form>`;
+  showDrawer();
+  $("#setForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const handles = $("#sBsky").value.split(/[\n,]+/).map(s => {
+      s = s.trim(); const m = s.match(/bsky\.app\/profile\/([^/\s?]+)/); return (m ? m[1] : s).replace(/^@/, "");
+    }).filter(Boolean);
+    const next = {
+      blueskySources: [...new Set(handles)], amazonTag: $("#sAmz").value.trim(), ebayCampaignId: $("#sEbay").value.trim(),
+      walmartTemplate: $("#sWal").value.trim(), targetTemplate: $("#sTgt").value.trim(),
+      dropThreshold: Math.min(90, Math.max(5, +$("#sTh").value || 20)), maxAgeHours: Math.min(720, Math.max(6, +$("#sAge").value || 48)), collectorUrl: $("#sCol").value.trim()
+    };
+    settings = Object.assign({}, CONFIG, next);
+    lsSet(LS_SETTINGS, next);
+    closeDrawer(); toast("Saved"); refresh();
+  });
+  $("#resetSet").addEventListener("click", () => {
+    try { localStorage.removeItem(LS_SETTINGS); } catch (e) {}
+    settings = Object.assign({}, CONFIG); closeDrawer(); toast("Back to site defaults"); refresh();
+  });
+}
+
+/* ---------- When live loading isn't possible here ---------- */
+function showNoRoute() {
+  const b = $("#banner");
+  b.innerHTML = `<strong>Live deals can't load in this view.</strong>
+    <span>This page loads deals by itself once it's on your own website. Inside Claude, open it in the Claude desktop app and allow it to use Claude's browser. Until then, the deals below are examples.</span>`;
+  b.hidden = false;
+}
+function useExamples() {
+  usingExamples = true;
+  const now = Date.now(), h = 36e5;
+  const ex = [
+    ["Fleetwood Mac", "Rumours", 19.99, 29.99, 2],
+    ["Kendrick Lamar", "good kid, m.A.A.d city (2LP)", 24.49, 36.98, 3],
+    ["Pearl Jam", "Dark Matter", 20, null, 5],
+    ["The War on Drugs", "I Don't Live Here Anymore", 15.99, 27.98, 7],
+    ["Guster", "Look Alive", 15.99, null, 9],
+    ["Miles Davis", "Kind of Blue", 14.98, 22.99, 12],
+    ["Phoebe Bridgers", "Punisher", 18.5, null, 20],
+    ["Radiohead", "In Rainbows", 21.99, 29.98, 26]
+  ];
+  deals = ex.map(([artist, album, price, was, hrs], i) => ({
+    id: "ex" + i, example: true, artist, album, title: artist + " – " + album, price, was, link: "", store: "Amazon",
+    image: "", handle: "example", postUrl: "#", at: new Date(now - hrs * h).toISOString(), source: "example"
+  }));
+  computeDrops(deals);
+  render();
+}
+
+/* ---------- Events ---------- */
+document.addEventListener("click", (e) => {
+  const c = e.target.closest(".card"); if (c) { openDeal(c.dataset.id); return; }
+  if (e.target.closest("[data-close]") || e.target === $("#scrim")) closeDrawer();
+  const hb = e.target.closest("[data-hide]");
+  if (hb) { hidden[hb.dataset.hide] = Date.now(); const ks = Object.keys(hidden); if (ks.length > 2000) ks.sort((a, b) => hidden[a] - hidden[b]).slice(0, ks.length - 2000).forEach(k => delete hidden[k]); lsSet(LS_HIDDEN, hidden); closeDrawer(); render(); toast("Hidden"); return; }
+  const ac = e.target.closest(".chip[data-age]");
+  if (ac) { filter.age = +ac.dataset.age; render(); return; }
+  const chip = e.target.closest(".chip[data-max]");
+  if (chip) {
+    document.querySelectorAll(".chip[data-max]").forEach(x => x.setAttribute("aria-pressed", x === chip ? "true" : "false"));
+    filter.max = +chip.dataset.max; render();
+  }
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#drawer").hidden) closeDrawer(); });
+$("#q").addEventListener("input", (e) => { filter.q = e.target.value.trim(); render(); });
+$("#sort").addEventListener("change", (e) => { filter.sort = e.target.value; render(); });
+$("#refreshBtn").addEventListener("click", refresh);
+$("#settingsBtn").addEventListener("click", openSettings);
+
+refresh();
+</script>
+
+</body>
+</html>
