@@ -3,11 +3,16 @@
 // ============================================================
 export const SOURCES = {
   // Bluesky accounts that post vinyl deals (handles, no @)
-  bluesky: ["vinylsale.bsky.social", "recorddrops.bsky.social", "thevinyldeals.bsky.social"],
+  bluesky: ["vinylsale.bsky.social", "vinylbargains.bsky.social", "recorddrops.bsky.social", "thevinyldeals.bsky.social"],
   // Subreddits (read through Reddit's official API; needs REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET)
-  reddit: ["VinylDeals"],
+  // Reddit now requires approved API access, so it's off for now. Add "VinylDeals" back if you get approved.
+  reddit: [],
   // RSS or Atom feeds that post priced deals
-  rss: ["https://www.vinyl-deals.com/rss"]
+  rss: [
+    "https://slickdeals.net/newsearch.php?searcharea=deals&searchin=first&rss=1&q=vinyl+lp",
+    "https://slickdeals.net/newsearch.php?searcharea=deals&searchin=first&rss=1&q=vinyl+record",
+    "https://www.vinyl-deals.com/rss"
+  ]
 };
 
 // Deals older than this are dropped from the list (price history is kept much longer).

@@ -39,14 +39,24 @@ export function parseDealText(text) {
   if (!(price > 0 && price < 1000)) return null;
 
   let head = line.slice(0, pm.index);
-  if (cleanTitle(head).length < 3) head = lines.find(l => !PRICE.test(l) && !/^#/.test(l)) || line.replace(PRICE, "");
   let store = "";
+  // Slickdeals style: "[AC] $22.10* | Artist: Album (Vinyl LP) at Amazon"
+  const afterPrice = line.slice(pm.index + pm[0].length);
+  if (cleanTitle(head.replace(/\[[^\]]*\]/g, "")).length < 3 && /^\s*\*?\s*\|/.test(afterPrice)) {
+    head = afterPrice.replace(/^\s*\*?\s*\|\s*/, "");
+    const at = head.match(/\s+at\s+([A-Z][\w&.' -]{1,30})\s*$/);
+    if (at) { store = at[1].trim(); head = head.slice(0, at.index); }
+  } else if (cleanTitle(head).length < 3) {
+    head = lines.find(l => !PRICE.test(l) && !/^#/.test(l)) || line.replace(PRICE, "");
+  }
+  head = head.replace(/\s*\+\s*free\s+(?:shipping|s\/h).*$/i, "").replace(/\s*w\/\s*prime.*$/i, "");
   const br = head.match(/^\s*[\[(]([^\])]{2,40})[\])]\s*/);
-  if (br) { store = br[1].trim(); head = head.slice(br[0].length); }
+  if (br) { if (!/^AC$/i.test(br[1].trim())) store = store || br[1].trim(); head = head.slice(br[0].length); }
   const name = cleanTitle(head);
   let artist = "", album = name;
   const sp = name.split(/\s+[-–—]\s+/);
   if (sp.length >= 2) { artist = sp[0].trim(); album = sp.slice(1).join(" - ").trim(); }
+  else { const c = name.match(/^([^:()]{2,60}):\s+(.+)$/); if (c) { artist = c[1].trim(); album = c[2].trim(); } }
   if (!album || album.length < 2) return null;
 
   const all = String(text);
@@ -198,9 +208,11 @@ export async function collect(state) {
   const now = Date.now();
   const byId = new Map((state.deals || []).map(d => [d.id, d]));
   for (const d of fresh) byId.set(d.id, d);
+  const seenDeal = new Set();
   const deals = [...byId.values()]
     .filter(d => now - Date.parse(d.at) < KEEP_DEALS_DAYS * DAY)
     .sort((a, b) => (a.at < b.at ? 1 : -1))
+    .filter(d => { const k = keyOf(d) + "|" + d.price; if (seenDeal.has(k)) return false; seenDeal.add(k); return true; })
     .slice(0, 1500);
 
   const history = state.history || {};
